@@ -54,7 +54,8 @@ def rank_hand(hand):
 def score_poker_hand(hand):
     hand = [(value_map[card[0]], card[1]) for card in hand]
     rank, sorted_values = rank_hand(hand)
-    return (rank, sorted_values)
+
+    return rank, sorted_values
 
 
 def hand_to_hash(hand):
@@ -65,9 +66,9 @@ def hand_to_hash(hand):
 
 
 def score_to_int(rank, sorted_values):
-    score = rank << 16
+    score = rank << 20
     for i, value in enumerate(sorted_values):
-        score |= value << (12 - 4 * i)
+        score |= value << (16 - 4 * i)
     return score
 
 
