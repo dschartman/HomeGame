@@ -49,3 +49,12 @@ def test_compare_two_hands(winning_hand, losing_hand):
     losing_score = generate.score_hand(losing_hand)
 
     assert winning_score > losing_score
+
+
+def test_hand_to_hash():
+    hand = ["AH", "KH", "QH", "JH", "TH"]
+    print(generate.hand_to_hash(hand))
+
+
+def test_generate_poker_hand_scores():
+    generate.generate_poker_hand_scores()

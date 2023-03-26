@@ -1,19 +1,24 @@
 import itertools
 import struct
-from .config import VALUE_MAP, VALUE_LOOKUP_MAP
+from .config import VALUE_MAP
 
 
-# def generate_poker_hand_scores():
-#     cards = [f'{value}{suit}' for value in '23456789TJQKA' for suit in 'SHCD']
-#     all_hands = itertools.combinations(cards, 5)
-#
-#     hand_scores = {}
-#     for hand in all_hands:
-#         hand_score = score_poker_hand(hand)
-#         hand_key = ''.join(sorted(hand))
-#         hand_scores[hand_key] = hand_score
-#
-#     return hand_scores
+def generate_poker_hand_scores():
+    cards = [f'{value}{suit}' for value in '23456789TJQKA' for suit in 'SHCD']
+    all_hands = itertools.combinations(cards, 5)
+
+    hand_scores = {}
+    for hand in all_hands:
+        hand = [(VALUE_MAP[card[0]], card[1]) for card in hand]
+        rank, sorted_values, rank_name = _rank_hand(hand)
+        hand_score = _rank_to_int(rank, sorted_values)
+        hand_key = hand_to_hash(hand)
+        hand_scores[hand_key] = {
+            "score": hand_score,
+            "rank": rank_name
+        }
+
+    return hand_scores
 
 
 def _rank_hand(hand):
@@ -61,7 +66,7 @@ def score_hand(hand):
 def hand_to_hash(hand):
     hand_value = 0
     for card in hand:
-        hand_value |= (1 << (VALUE_MAP[card[0]] + 4 * ('SHCD'.index(card[1]))))
+        hand_value |= (1 << (VALUE_MAP[card[0]] + 4 * ("SHCD".index(card[1]))))
     return hand_value
 
 
@@ -96,9 +101,9 @@ def load_hand_scores_from_file(filename):
 # save_hand_scores_to_file(hand_scores, 'poker_hand_scores_5cards.bin')
 
 
-def score_poker_hand_from_dict(hand, hand_scores):
-    hand_hash = hand_to_hash(hand)
-    return hand_scores.get(hand_hash)
+# def score_poker_hand_from_dict(hand, hand_scores):
+#     hand_hash = hand_to_hash(hand)
+#     return hand_scores.get(hand_hash)
 
 # hand_scores = load_hand_scores_from_file('poker_hand_scores_5cards.bin')
 # hand = ['2H', '3H', '4H', '5H', '6H']
