@@ -70,6 +70,20 @@ def hand_to_hash(hand):
     return hand_value
 
 
+def hash_to_hand(hand_hash):
+    suits = 'SHCD'
+    values = '23456789TJQKA'
+
+    hand = []
+    for suit_idx, suit in enumerate(suits):
+        for value_idx, value in enumerate(values):
+            card_bit = VALUE_MAP[value] + 4 * suit_idx
+            if hand_hash & (1 << card_bit):
+                hand.append(f'{value}{suit}')
+
+    return hand
+
+
 def _rank_to_int(rank, sorted_values):
     score = rank << 20
     for i, value in enumerate(sorted_values):
@@ -94,17 +108,3 @@ def load_hand_scores_from_file(filename):
             hand_hash, score = struct.unpack('I I', data)
             hand_scores[hand_hash] = score
     return hand_scores
-
-
-# hand_scores = generate_poker_hand_scores()
-# hand_scores = {hand_to_hash(hand): score_to_int(*score) for hand, score in hand_scores.items()}
-# save_hand_scores_to_file(hand_scores, 'poker_hand_scores_5cards.bin')
-
-
-# def score_poker_hand_from_dict(hand, hand_scores):
-#     hand_hash = hand_to_hash(hand)
-#     return hand_scores.get(hand_hash)
-
-# hand_scores = load_hand_scores_from_file('poker_hand_scores_5cards.bin')
-# hand = ['2H', '3H', '4H', '5H', '6H']
-# print(score_poker_hand_from_dict(hand, hand_scores))
