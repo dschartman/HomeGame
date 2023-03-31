@@ -1,2 +1,2 @@
-# CardVision
-Side project to create augmented live poker table.
+# HomeGame
+Side project to create an online multiplayer poker platform for casual players
