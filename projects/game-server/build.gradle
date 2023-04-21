@@ -18,6 +18,11 @@ dependencies {
     runtimeOnly("ch.qos.logback:logback-classic")
     implementation("io.micronaut:micronaut-validation")
 
+    testImplementation 'org.awaitility:awaitility:4.2.0'
+
+    implementation platform('io.projectreactor:reactor-bom:2022.0.6')
+    implementation 'io.projectreactor:reactor-core'
+
 }
 
 
