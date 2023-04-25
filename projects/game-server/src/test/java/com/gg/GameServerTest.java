@@ -1,5 +1,7 @@
 package com.gg;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import io.micronaut.context.BeanContext;
 import io.micronaut.context.annotation.Property;
 import io.micronaut.context.annotation.Requires;
@@ -12,6 +14,7 @@ import io.micronaut.websocket.WebSocketClient;
 import io.micronaut.websocket.annotation.ClientWebSocket;
 import io.micronaut.websocket.annotation.OnMessage;
 import jakarta.inject.Inject;
+import jakarta.inject.Named;
 import org.junit.jupiter.api.Test;
 import org.reactivestreams.Publisher;
 import reactor.core.publisher.Flux;
@@ -38,6 +41,9 @@ class GameServerTest {
 
     @Inject
     EmbeddedServer embeddedServer;
+    @Named("json")
+    @Inject
+    private ObjectMapper objectMapper;
 
     @Requires(property = "spec.name", value = "GameServerTest")
     @ClientWebSocket
@@ -92,10 +98,15 @@ class GameServerTest {
                 Arrays.asList("[player1] connected...", "[player2] connected...")
                         .equals(player1.getMessagesChronologically()));
 
-        player1.send("hi");
+
+        ObjectNode chatMessage = objectMapper.createObjectNode();
+        chatMessage.put("action", "CHAT");
+        chatMessage.put("message", "hi");
+        player1.send(chatMessage.toString());
         await().until(() -> "[player1] hi".equals(player2.getLatestMessage()));
 
-        player2.send("bye!");
+        chatMessage.put("message", "bye!");
+        player2.send(chatMessage.toString());
         await().until(() -> "[player2] bye!".equals(player1.getLatestMessage()));
 
         player2.close();

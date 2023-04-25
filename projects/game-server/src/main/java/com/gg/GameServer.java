@@ -1,5 +1,9 @@
 package com.gg;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import io.micronaut.websocket.WebSocketBroadcaster;
 import io.micronaut.websocket.WebSocketSession;
 import io.micronaut.websocket.annotation.OnClose;
@@ -17,9 +21,11 @@ public class GameServer {
     private static final Logger LOG = LoggerFactory.getLogger(GameServer.class);
 
     private final WebSocketBroadcaster broadcaster;
+    private final ObjectMapper objectMapper;
 
     public GameServer(WebSocketBroadcaster broadcaster) {
         this.broadcaster = broadcaster;
+        this.objectMapper = new ObjectMapper();
     }
 
     @OnOpen
@@ -37,7 +43,20 @@ public class GameServer {
             WebSocketSession session) {
 
         log("onMessage", session, username, id);
-        return broadcaster.broadcast(String.format("[%s] %s", username, message), isValid(id));
+
+        try {
+            JsonNode jsonMessage = this.objectMapper.readTree(message);
+            String action = jsonMessage.get("action").asText();
+            switch (action) {
+                case "CHAT" -> {
+                    String chatMessage = jsonMessage.get("message").asText();
+                    return broadcaster.broadcast(String.format("[%s] %s", username, chatMessage), isValid(id));
+                }
+                default -> throw new IllegalStateException("Unexpected value: " + action);
+            }
+        } catch (JsonProcessingException e) {
+            throw new RuntimeException(e);
+        }
     }
 
     @OnClose
