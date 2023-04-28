@@ -4,6 +4,8 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.gg.messages.ChatMessage;
+import com.gg.messages.ConnectionStatus;
 import io.micronaut.websocket.WebSocketBroadcaster;
 import io.micronaut.websocket.WebSocketSession;
 import io.micronaut.websocket.annotation.OnClose;
@@ -16,7 +18,7 @@ import org.slf4j.LoggerFactory;
 
 import java.util.function.Predicate;
 
-@ServerWebSocket("/ws/game/{id}/{username}")
+@ServerWebSocket("/ws/game/{table_id}/{user_id}")
 public class GameServer {
     private static final Logger LOG = LoggerFactory.getLogger(GameServer.class);
 
@@ -29,52 +31,52 @@ public class GameServer {
     }
 
     @OnOpen
-    public Publisher<String> onOpen(String id, String username, WebSocketSession session) {
-        log("onOpen", session, username, id);
+    public Publisher<JsonNode> onOpen(String table_id, String user_id, WebSocketSession session) {
+        log("onOpen", session, user_id, table_id);
 
-        return broadcaster.broadcast(String.format("[%s] connected...", username), isValid(id));
+        ConnectionStatus connectionStatus = new ConnectionStatus(user_id, table_id, "connected...");
+
+        return broadcaster.broadcast(objectMapper.valueToTree(connectionStatus), isValid(table_id));
     }
 
     @OnMessage
-    public Publisher<String> onMessage(
-            String id,
-            String username,
-            String message,
-            WebSocketSession session) {
+    public Publisher<JsonNode> onMessage(
+            String table_id,
+            String user_id,
+            JsonNode message,
+            WebSocketSession session) throws JsonProcessingException {
 
-        log("onMessage", session, username, id);
+        log("onMessage", session, user_id, table_id);
 
-        try {
-            JsonNode jsonMessage = this.objectMapper.readTree(message);
-            String action = jsonMessage.get("action").asText();
-            switch (action) {
-                case "CHAT" -> {
-                    String chatMessage = jsonMessage.get("message").asText();
-                    return broadcaster.broadcast(String.format("[%s] %s", username, chatMessage), isValid(id));
-                }
-                default -> throw new IllegalStateException("Unexpected value: " + action);
+        String messageType = message.get("messageType").asText();
+        switch (messageType) {
+            case "chatMessage" -> {
+                ChatMessage chatMessage = objectMapper.treeToValue(message, ChatMessage.class);
+                return broadcaster.broadcast(objectMapper.valueToTree(chatMessage), isValid(table_id));
             }
-        } catch (JsonProcessingException e) {
-            throw new RuntimeException(e);
+            default -> throw new IllegalStateException("Unexpected value: " + messageType);
         }
     }
 
     @OnClose
-    public Publisher<String> onClose(
-            String id,
-            String username,
+    public Publisher<JsonNode> onClose(
+            String table_id,
+            String user_id,
             WebSocketSession session) {
 
-        log("onClose", session, username, id);
-        return broadcaster.broadcast(String.format("[%s] left...", username), isValid(id));
+        log("onClose", session, user_id, table_id);
+
+        ConnectionStatus connectionStatus = new ConnectionStatus(user_id, table_id, "disconnected...");
+
+        return broadcaster.broadcast(objectMapper.valueToTree(connectionStatus), isValid(table_id));
     }
 
-    private void log(String event, WebSocketSession session, String username, String id) {
+    private void log(String event, WebSocketSession session, String user_id, String table_id) {
         LOG.info("* WebSocket: {} received for session {} from '{}' regarding '{}'",
-                event, session.getId(), username, id);
+                event, session.getId(), user_id, table_id);
     }
 
-    private Predicate<WebSocketSession> isValid(String id) {
+    private Predicate<WebSocketSession> isValid(String table_id) {
         return s -> true; //intra-id chat
     }
 }

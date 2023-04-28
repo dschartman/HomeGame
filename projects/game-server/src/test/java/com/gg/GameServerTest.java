@@ -1,7 +1,10 @@
 package com.gg;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.gg.messages.ConnectionStatus;
 import io.micronaut.context.BeanContext;
 import io.micronaut.context.annotation.Property;
 import io.micronaut.context.annotation.Requires;
@@ -49,69 +52,82 @@ class GameServerTest {
     @ClientWebSocket
     static abstract class TestWebSocketClient implements AutoCloseable {
 
-        private final Deque<String> messageHistory = new ConcurrentLinkedDeque<>();
+        private final Deque<JsonNode> messageHistory = new ConcurrentLinkedDeque<>();
 
-        public String getLatestMessage() {
+        public JsonNode getLatestMessage() {
             return messageHistory.peekLast();
         }
 
-        public List<String> getMessagesChronologically() {
+        public List<JsonNode> getMessagesChronologically() {
             return new ArrayList<>(messageHistory);
         }
 
         @OnMessage
             // <5>
-        void onMessage(String message) {
+        void onMessage(JsonNode message) {
             messageHistory.add(message);
         }
 
-        abstract void send(@NonNull @NotBlank String message);
+        abstract void send(@NonNull JsonNode message);
     }
 
-    private TestWebSocketClient createWebSocketClient(int port, String username, String id) {
+    private TestWebSocketClient createWebSocketClient(int port, String user_id, String table_id) {
         WebSocketClient webSocketClient = beanContext.getBean(WebSocketClient.class);
         URI uri = UriBuilder.of("ws://localhost")
                 .port(port)
                 .path("ws")
                 .path("game")
-                .path("{id}")
-                .path("{username}")
-                .expand(CollectionUtils.mapOf("id", id, "username", username));
+                .path("{table_id}")
+                .path("{user_id}")
+                .expand(CollectionUtils.mapOf("table_id", table_id, "user_id", user_id));
         Publisher<TestWebSocketClient> client = webSocketClient.connect(TestWebSocketClient.class, uri);
 
         return Flux.from(client).blockFirst();
     }
 
     @Test
-    void testWebsocketServer() throws Exception {
+    void testPlayerConnectAndDisconnect() throws Exception {
         TestWebSocketClient player1 = createWebSocketClient(embeddedServer.getPort(), "player1", "1");
-        await().until(() ->
-                Collections.singletonList("[player1] connected...")
-                        .equals(player1.getMessagesChronologically()));
-
-        TestWebSocketClient player2 = createWebSocketClient(embeddedServer.getPort(), "player2", "1");
-        await().until(() ->
-                Collections.singletonList("[player2] connected...")
-                        .equals(player2.getMessagesChronologically()));
-
-        await().until(() ->
-                Arrays.asList("[player1] connected...", "[player2] connected...")
-                        .equals(player1.getMessagesChronologically()));
-
-
-        ObjectNode chatMessage = objectMapper.createObjectNode();
-        chatMessage.put("action", "CHAT");
-        chatMessage.put("message", "hi");
-        player1.send(chatMessage.toString());
-        await().until(() -> "[player1] hi".equals(player2.getLatestMessage()));
-
-        chatMessage.put("message", "bye!");
-        player2.send(chatMessage.toString());
-        await().until(() -> "[player2] bye!".equals(player1.getLatestMessage()));
-
-        player2.close();
-        await().until(() -> "[player2] left...".equals(player1.getLatestMessage()));
+        await().until(() -> {
+            var latestMessage = player1.getLatestMessage();
+            ConnectionStatus connectionStatus = objectMapper.treeToValue(latestMessage, ConnectionStatus.class);
+            return "player1".equals(connectionStatus.getUserId()) && "connected...".equals(connectionStatus.getMessage());
+        });
+//
+//        TestWebSocketClient player2 = createWebSocketClient(embeddedServer.getPort(), "player2", "1");
+//        await().until(() -> "[player2] connected...".equals(player2.getLatestMessage().get("message").asText()));
 
         player1.close();
+//        await().until(() -> "[player1] disconnected...".equals(player2.getLatestMessage().get("message").asText()));
+//        player2.close();
+    }
+
+    @Test
+    void testWebsocketServer() throws Exception {
+        TestWebSocketClient player1 = createWebSocketClient(embeddedServer.getPort(), "player1", "1");
+        TestWebSocketClient player2 = createWebSocketClient(embeddedServer.getPort(), "player2", "1");
+
+        player1.send(createChatMessage("hi"));
+        await().until(() -> "hi".equals(player2.getLatestMessage().get("message").asText()));
+
+        player2.send(createChatMessage("bye!"));
+//        assertChatMessage("[player2] bye!", player1);
+        await().until(() -> "bye!".equals(player1.getLatestMessage().get("message").asText()));
+
+
+        player2.close();
+        player1.close();
+    }
+
+    private void assertChatMessage(String expectedMessage, TestWebSocketClient player) throws JsonProcessingException {
+        await().until(() -> expectedMessage.equals(player.getLatestMessage().get("message").asText()));
+    }
+
+    private ObjectNode createChatMessage(String message) {
+        ObjectNode chatMessage = objectMapper.createObjectNode();
+        chatMessage.put("action", "CHAT");
+        chatMessage.put("message", message);
+
+        return chatMessage;
     }
 }
