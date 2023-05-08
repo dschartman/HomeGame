@@ -34,9 +34,19 @@ public class GameServer {
     public Publisher<JsonNode> onOpen(String table_id, String user_id, WebSocketSession session) {
         log("onOpen", session, user_id, table_id);
 
-        ConnectionStatus connectionStatus = new ConnectionStatus(user_id, table_id, "connected...");
+        ConnectionStatus connectionStatus = createConnectionStatus(table_id, user_id, "connected");
 
         return broadcaster.broadcast(objectMapper.valueToTree(connectionStatus), isValid(table_id));
+    }
+
+    private static ConnectionStatus createConnectionStatus(String table_id, String user_id, String message) {
+        ConnectionStatus connectionStatus = new ConnectionStatus();
+        connectionStatus.setType("connectionStatus");
+        connectionStatus.setUserId(user_id);
+        connectionStatus.setTableId(table_id);
+        connectionStatus.setMessage(message);
+
+        return connectionStatus;
     }
 
     @OnMessage
@@ -48,7 +58,7 @@ public class GameServer {
 
         log("onMessage", session, user_id, table_id);
 
-        String messageType = message.get("messageType").asText();
+        String messageType = message.get("type").asText();
         switch (messageType) {
             case "chatMessage" -> {
                 ChatMessage chatMessage = objectMapper.treeToValue(message, ChatMessage.class);
@@ -66,7 +76,7 @@ public class GameServer {
 
         log("onClose", session, user_id, table_id);
 
-        ConnectionStatus connectionStatus = new ConnectionStatus(user_id, table_id, "disconnected...");
+        ConnectionStatus connectionStatus = createConnectionStatus(user_id, table_id, "disconnected");
 
         return broadcaster.broadcast(objectMapper.valueToTree(connectionStatus), isValid(table_id));
     }

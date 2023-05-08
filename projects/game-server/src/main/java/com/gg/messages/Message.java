@@ -1,26 +1,24 @@
 package com.gg.messages;
 
+import com.fasterxml.jackson.annotation.JsonSubTypes;
+import com.fasterxml.jackson.annotation.JsonTypeInfo;
+
+@JsonTypeInfo(use = JsonTypeInfo.Id.NAME, property = "type", visible = true)
+@JsonSubTypes({
+        @JsonSubTypes.Type(value = ChatMessage.class, name = "chatMessage"),
+        @JsonSubTypes.Type(value = ConnectionStatus.class, name = "connectionStatus"),
+})
 public abstract class Message {
-    protected String messageType;
+    protected String type;
     protected String userId;
     protected String tableId;
 
-    protected Message(String messageType) {
-        this.messageType = messageType;
+    public String getType() {
+        return type;
     }
 
-    protected Message(String messageType, String userId, String tableId) {
-        this.messageType = messageType;
-        this.userId = userId;
-        this.tableId = tableId;
-    }
-
-    public String getMessageType() {
-        return messageType;
-    }
-
-    public void setMessageType(String messageType) {
-        this.messageType = messageType;
+    public void setType(String type) {
+        this.type = type;
     }
 
     public String getUserId() {

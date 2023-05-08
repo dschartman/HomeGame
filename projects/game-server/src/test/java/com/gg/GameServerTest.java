@@ -91,29 +91,30 @@ class GameServerTest {
         await().until(() -> {
             var latestMessage = player1.getLatestMessage();
             ConnectionStatus connectionStatus = objectMapper.treeToValue(latestMessage, ConnectionStatus.class);
-            return "player1".equals(connectionStatus.getUserId()) && "connected...".equals(connectionStatus.getMessage());
+            return "player1".equals(connectionStatus.getUserId()) && "connected".equals(connectionStatus.getMessage());
         });
-//
-//        TestWebSocketClient player2 = createWebSocketClient(embeddedServer.getPort(), "player2", "1");
-//        await().until(() -> "[player2] connected...".equals(player2.getLatestMessage().get("message").asText()));
+
+        TestWebSocketClient player2 = createWebSocketClient(embeddedServer.getPort(), "player2", "1");
+        await().until(() -> "connected".equals(player2.getLatestMessage().get("message").asText()));
 
         player1.close();
-//        await().until(() -> "[player1] disconnected...".equals(player2.getLatestMessage().get("message").asText()));
-//        player2.close();
+        await().until(() -> "disconnected".equals(player2.getLatestMessage().get("message").asText()));
+        player2.close();
     }
 
     @Test
     void testWebsocketServer() throws Exception {
-        TestWebSocketClient player1 = createWebSocketClient(embeddedServer.getPort(), "player1", "1");
-        TestWebSocketClient player2 = createWebSocketClient(embeddedServer.getPort(), "player2", "1");
+        String tableId = "potato-table";
+        String p1 = "potato-player-1";
+        String p2 = "potato-player-2";
+        TestWebSocketClient player1 = createWebSocketClient(embeddedServer.getPort(), p1, tableId);
+        TestWebSocketClient player2 = createWebSocketClient(embeddedServer.getPort(), p2, tableId);
 
-        player1.send(createChatMessage("hi"));
+        player1.send(createChatMessage(p1, tableId,"hi"));
         await().until(() -> "hi".equals(player2.getLatestMessage().get("message").asText()));
 
-        player2.send(createChatMessage("bye!"));
-//        assertChatMessage("[player2] bye!", player1);
+        player2.send(createChatMessage(p2, tableId, "bye!"));
         await().until(() -> "bye!".equals(player1.getLatestMessage().get("message").asText()));
-
 
         player2.close();
         player1.close();
@@ -123,10 +124,12 @@ class GameServerTest {
         await().until(() -> expectedMessage.equals(player.getLatestMessage().get("message").asText()));
     }
 
-    private ObjectNode createChatMessage(String message) {
+    private ObjectNode createChatMessage(String userId, String tableId, String message) {
         ObjectNode chatMessage = objectMapper.createObjectNode();
-        chatMessage.put("action", "CHAT");
+        chatMessage.put("type", "chatMessage");
         chatMessage.put("message", message);
+        chatMessage.put("userId", userId);
+        chatMessage.put("tableId", tableId);
 
         return chatMessage;
     }
